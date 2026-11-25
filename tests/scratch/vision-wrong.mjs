@@ -1,0 +1,1 @@
+const p = process.argv[3].split(','); const o = {}; for (const x of p) o[x] = 'completely different words'; console.log(JSON.stringify({ total: 1, pages: o }));

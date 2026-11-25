@@ -1,0 +1,12 @@
+process.env.TRESORIT_IDLE_KILL_MS = '600';
+const { Extractor } = await import('../tresorit-connector/server/lib/extractor.js');
+const keep = setInterval(() => {}, 500);
+const ex = new Extractor();
+const F = '/home/tester/build/mock/Tresors/Alder Works UK/07 - Research/ORBIT/ORBIT technical report.pdf';
+const a = await ex.extract(F, 'pdf', 2000, true);
+console.log('first job', a.status, '| worker alive:', !!ex.worker);
+await new Promise((r) => setTimeout(r, 1200));
+console.log('after idle period, worker released:', ex.worker === null);
+const b = await ex.extract(F, 'pdf', 2000, false);
+console.log('next job after release', b.status, b.text.includes('boson'));
+clearInterval(keep); await ex.close();

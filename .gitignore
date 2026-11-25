@@ -1,0 +1,5 @@
+work/
+releases/
+.DS_Store
+*.tmp
+tests/scratch/big/

@@ -1,0 +1,35 @@
+{
+ "about": "What the suites are expected to give on a Mac (Apple silicon). 'checks' is the number of checks a suite makes; 'known' are checks that fail because of a finding not yet repaired; 'unsteady' are checks that depend on the state of the Mac and not on the build (see tests/README-TESTS.md). test15 is not run here (it needs qpdf). 'without' gives a suite's figures where the folder named in 'needs' is absent from the scratch folder of the run: the part that needs it is skipped, the suite counts as passed, and the run says so in one line.",
+ "quick": ["test","test2"],
+ "groups": [
+  ["A", ["test", "test2"]],
+  ["B", ["test5", "test6", "test8"]],
+  ["B", ["test11"]],
+  ["B", ["test12"]],
+  ["B", ["test13:1500"]],
+  ["B", ["test14:1500"]],
+  ["B", ["test16:1800"]],
+  ["B", ["test17:2400"]],
+  ["C", ["test7", "test3", "test10:1200"]],
+  ["A", ["test9"]],
+  ["A", ["test18:1200"]]
+ ],
+ "suites": {
+  "test": { "checks": 96 },
+  "test2": { "checks": 22 },
+  "test5": { "checks": 76 },
+  "test6": { "checks": 0, "skips": 2 },
+  "test8": { "checks": 20 },
+  "test11": { "checks": 96 },
+  "test12": { "checks": 67 },
+  "test13": { "checks": 31 },
+  "test14": { "checks": 56, "without": { "needs": "ref135/server/index.js", "checks": 53, "skips": 1, "say": "1 part skipped: it needs an earlier version that is not published" } },
+  "test16": { "checks": 42 },
+  "test17": { "checks": 29 },
+  "test7": { "checks": 60 },
+  "test3": { "checks": 9 },
+  "test10": { "checks": 26 },
+  "test9": { "checks": 18 },
+  "test18": { "checks": 74 }
+ }
+}

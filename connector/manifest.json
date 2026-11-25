@@ -1,0 +1,218 @@
+{
+  "manifest_version": "0.3",
+  "name": "tresorit-local",
+  "display_name": "Tresorit Files",
+  "version": "1.5.0",
+  "description": "Work with the Tresorit folder synced on this Mac: find, search inside documents (including scans, old Office files and Outlook messages), read, write, move, bring files in from the Mac, and delete with permission.",
+  "long_description": "Connects Claude to the Tresorit folder that the Tresorit app keeps synced on this Mac. Finds files by name, searches inside PDF, Word, Excel, PowerPoint and Outlook message files (current and pre-2007 formats), reads scanned PDFs through text recognition, and can write, move and copy. It can bring a file or folder into Tresorit from elsewhere on the Mac (Downloads, Desktop, Documents, an external drive), checking every copy against the original, and copy files out to Downloads or Desktop; hidden folders, the Library, applications and password or key stores stay off limits. Deleting always needs your approval and items go to a holding area from which they can be restored. Every action is written to an access log on this Mac. The connector works on local files only: it does not use the Tresorit API, does not need your Tresorit password, and makes no network connections. Until its built-in self-check has passed on your computer, the connector can read and search but cannot change anything.",
+  "author": {
+    "name": "Gustavo Alexander-Russo"
+  },
+  "license": "MIT",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "TRESORIT_ROOT": "${user_config.tresorit_folder}",
+        "TRESORIT_DATA_DIR": "${user_config.data_folder}",
+        "TRESORIT_BLOCKED": "${user_config.blocked_folders}",
+        "TRESORIT_BACKGROUND_INDEX": "${user_config.background_index}",
+        "TRESORIT_OCR": "${user_config.ocr}",
+        "TRESORIT_NO_INDEX": "${user_config.no_index_folders}",
+        "TRESORIT_PAUSE_ON_BATTERY": "${user_config.pause_on_battery}",
+        "TRESORIT_HOLDING_DAYS": "${user_config.holding_days}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "tresorit_preflight",
+      "description": "Self-check on this computer; the connector is read-only until it passes. Changes nothing in Tresorit"
+    },
+    {
+      "name": "tresorit_list_folder",
+      "description": "List what is inside a Tresorit folder"
+    },
+    {
+      "name": "tresorit_find_files",
+      "description": "Find files and folders by name"
+    },
+    {
+      "name": "tresorit_search_contents",
+      "description": "Search inside PDF (including scans), Word, Excel, PowerPoint, Outlook messages and text files"
+    },
+    {
+      "name": "tresorit_read_file",
+      "description": "Read a document as text, or show an image"
+    },
+    {
+      "name": "tresorit_file_info",
+      "description": "Size, dates and type of a file or folder"
+    },
+    {
+      "name": "tresorit_recent_files",
+      "description": "Files added or changed recently"
+    },
+    {
+      "name": "tresorit_write_file",
+      "description": "Create a file, or replace one (previous version kept)"
+    },
+    {
+      "name": "tresorit_edit_file",
+      "description": "Replace a passage in a plain-text file (previous version kept)"
+    },
+    {
+      "name": "tresorit_create_folder",
+      "description": "Create a folder inside a tresor"
+    },
+    {
+      "name": "tresorit_move_item",
+      "description": "Move or rename a file or folder"
+    },
+    {
+      "name": "tresorit_copy_item",
+      "description": "Copy a file or folder"
+    },
+    {
+      "name": "tresorit_delete_items",
+      "description": "Delete files or folders, only with the user's approval; items go to a holding area"
+    },
+    {
+      "name": "tresorit_list_deleted",
+      "description": "Show the holding area of deleted and replaced items"
+    },
+    {
+      "name": "tresorit_restore_deleted",
+      "description": "Put items from the holding area back in Tresorit"
+    },
+    {
+      "name": "tresorit_export_to_transfer",
+      "description": "Copy a file out of Tresorit to the transfer folder for processing"
+    },
+    {
+      "name": "tresorit_import_from_transfer",
+      "description": "Bring a file from the transfer folder into Tresorit"
+    },
+    {
+      "name": "tresorit_connector_status",
+      "description": "Show the connector's setup, the search index and text recognition"
+    },
+    {
+      "name": "tresorit_access_log",
+      "description": "Show recent lines of the access log"
+    },
+    {
+      "name": "tresorit_import_file",
+      "description": "Bring a file or folder into Tresorit from elsewhere on this Mac (copy by default; verified)"
+    },
+    {
+      "name": "tresorit_list_outside_folder",
+      "description": "List names, sizes and dates in a folder outside Tresorit, e.g. Downloads (nothing is opened)"
+    },
+    {
+      "name": "tresorit_export_file",
+      "description": "Copy a file or folder from Tresorit to Downloads or Desktop"
+    },
+    {
+      "name": "tresorit_receive_file",
+      "description": "Save a small document made in the chat, sent in checked parts"
+    },
+    {
+      "name": "tresorit_clear_deleted",
+      "description": "Remove old batches from the holding area for good (needs your approval)"
+    },
+    {
+      "name": "tresorit_list_unreadable",
+      "description": "List the files that could not be read, with the reason for each"
+    },
+    {
+      "name": "tresorit_unlock_folder",
+      "description": "Make password-protected PDFs in a folder searchable (you type the password on your Mac)"
+    },
+    {
+      "name": "tresorit_clear_transfer",
+      "description": "List and empty the transfer folder (needs your approval)"
+    },
+    {
+      "name": "tresorit_find_identical",
+      "description": "Find files with identical content"
+    }
+  ],
+  "keywords": [
+    "tresorit",
+    "files",
+    "search",
+    "documents",
+    "ocr"
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin"
+    ],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  },
+  "user_config": {
+    "tresorit_folder": {
+      "type": "directory",
+      "title": "Tresorit folder",
+      "description": "Leave empty to find it automatically (the Tresors folder in your home folder, or the Tresorit entry under Library/CloudStorage).",
+      "required": false
+    },
+    "data_folder": {
+      "type": "directory",
+      "title": "Connector data folder",
+      "description": "Where the access log, holding area, transfer folder and search index are kept. Leave empty for a folder named TresoritConnector in your home folder. Must be outside Tresorit.",
+      "required": false
+    },
+    "blocked_folders": {
+      "type": "string",
+      "title": "Blocked folders (optional)",
+      "description": "Folders the connector may never read or change, separated by semicolons, written from the tresor name down. Example: Finance/Payroll; Company/Projects/Archive 2019",
+      "required": false
+    },
+    "no_index_folders": {
+      "type": "string",
+      "title": "Folders not to index (optional)",
+      "description": "Folders whose documents are never copied into the search index and never searched; they can still be opened when you ask for a file in them by name. Separated by semicolons, written from the tresor name down. Example: Finance/Payroll; Private/Passwords. Left empty, no folder is kept out. Before anything is read into the index for the first time, and whenever this list gets shorter, the connector shows the list in a window on your Mac at the end of its self-check and waits for your yes.",
+      "required": false
+    },
+    "background_index": {
+      "type": "boolean",
+      "title": "Read documents in the background for fast search",
+      "description": "When on, the connector reads each document once and keeps its text in the data folder, so searching inside documents is quick.",
+      "default": true,
+      "required": false
+    },
+    "ocr": {
+      "type": "boolean",
+      "title": "Text recognition for scanned PDFs",
+      "description": "When on, scanned PDF pages are read by text recognition in the background (the Mac's built-in recognition when available, otherwise a bundled engine for English and Portuguese).",
+      "default": true,
+      "required": false
+    },
+    "pause_on_battery": {
+      "type": "boolean",
+      "title": "Go easy on the battery",
+      "description": "When on, and the Mac runs on its battery, new documents are still read for search in small amounts (newest first), while bulk reading, very large files and text recognition for scanned PDFs wait until it is plugged in. Below 20% charge nothing is read in the background. When off, everything runs on battery too. Anything you ask for is never held up.",
+      "default": true,
+      "required": false
+    },
+    "holding_days": {
+      "type": "number",
+      "title": "Clear the holding area after (days)",
+      "description": "Deleted and replaced items, and originals of files moved into Tresorit, are kept in the holding area on this Mac so they can be restored. Batches older than this many days are removed for good automatically, while the connector is running. Default 30. Set 0 to keep everything until you clear it yourself.",
+      "default": 30,
+      "min": 0,
+      "max": 3650,
+      "required": false
+    }
+  }
+}

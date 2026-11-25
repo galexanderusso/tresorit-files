@@ -1,0 +1,1079 @@
+{
+ "server": "tresorit-local",
+ "instructions": "This connector works on the user's Tresorit folder as synced on this Mac. Use it for anything \"in Tresorit\".\nPaths are relative to the Tresorit folder and start with the tresor name, e.g. \"Company/Projects/2026/notes.md\". Use \"\" for the top level.\nTo locate things: tresorit_find_files searches names, tresorit_search_contents searches inside documents (PDF including scans, Word, Excel, PowerPoint, Outlook messages, text), tresorit_list_folder browses, tresorit_recent_files shows what changed lately.\nReading: tresorit_read_file returns the text of a document (paged with offset) or shows an image. Text of scanned PDFs comes from text recognition and can contain errors: check figures, names and dates against the original before relying on them.\nFiles are read by their content, not by the ending of their name: a picture saved as .pdf goes through text recognition, a PDF saved as .docx is read as a PDF, and the note says so. tresorit_list_unreadable lists what could not be read, with the reason (password-protected, damaged, empty, unsupported content, too large) and the files whose ending does not match their content.\nPASSWORD-PROTECTED PDFs: NEVER ask the user to type a document password in the conversation, and never accept one there. Use tresorit_read_file with ask_password (one read, nothing kept) or tresorit_unlock_folder (makes a folder searchable): the user is then asked for the password in a box on their Mac. The password is used for that call and kept nowhere.\ntresorit_find_identical finds files with the same content, or tells whether a given file is already in Tresorit. tresorit_clear_transfer lists and empties the transfer folder (needs the user's permission, with a preview first). tresorit_export_to_transfer and tresorit_import_from_transfer take several items in one call.\nChanging: tresorit_write_file, tresorit_edit_file, tresorit_create_folder, tresorit_move_item, tresorit_copy_item. Existing files are never overwritten unless overwrite is true, and then the previous version is kept in the holding area.\nBlocked folders (connector settings) are never read or changed, also not through a folder above them: a copy of such a folder leaves the blocked folder out and says so; moving, renaming, deleting or replacing it is refused. Tell the user when that happens; do not work around it.\nDELETING REQUIRES THE USER'S PERMISSION EVERY TIME. Call tresorit_delete_items once to get a preview and a token, show the user exactly what would be deleted, wait for their explicit yes in the conversation, and only then call tresorit_delete_items again with the token. The user is then asked once more in a confirmation window on their Mac (or a box of the app): tell them to expect it, and if they do not answer it or choose Keep, nothing is deleted. Never treat an earlier, general instruction as permission. Deleted items go to a holding area and can be brought back with tresorit_restore_deleted.\nBringing things in: a file or folder that is elsewhere on this Mac (Downloads, Desktop, Documents, an external drive) goes into Tresorit with tresorit_import_file (copy by default; a bare file name means the one in Downloads); tresorit_list_outside_folder shows names in an outside folder. A small document you created in the conversation can be saved directly with tresorit_receive_file; for a larger one, give it to the user to download and then import it from Downloads.\nTaking things out: tresorit_export_file copies a file to Downloads or Desktop (for example to attach to an email); tresorit_export_to_transfer copies it to the connector's transfer folder for processing.\nFolders set as \"do not index\" are read only when the user asks for a file in them by name; their contents are never searched.\nThe holding area clears itself: batches older than the number of days in the connector's settings (30 unless the user changed it; 0 = never) are removed for good automatically, and each such removal is in the access log. tresorit_list_deleted shows its size. Removing anything sooner is done with tresorit_clear_deleted, only with the user's permission.\nEvery action is written to an access log on the user's Mac.\nThe connector is read-only until tresorit_preflight (a self-check that changes nothing in Tresorit) has passed on this computer for this version. If a tool says the self-check has not passed, offer to run it and show the user its report.",
+ "tools": [
+  {
+   "name": "tresorit_list_folder",
+   "title": "List a Tresorit folder",
+   "description": "List what is inside a folder in Tresorit. Use path \"\" for the top level (the tresors). Set recursive to also list subfolders.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "default": "",
+      "description": "Folder path relative to the Tresorit folder; \"\" for the top level",
+      "type": "string"
+     },
+     "recursive": {
+      "default": false,
+      "description": "Also list the contents of subfolders",
+      "type": "boolean"
+     },
+     "max_depth": {
+      "default": 3,
+      "description": "How many levels deep to go when recursive",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+     },
+     "include_hidden": {
+      "default": false,
+      "type": "boolean"
+     },
+     "limit": {
+      "default": 400,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_find_files",
+   "title": "Find files and folders by name",
+   "description": "Search Tresorit by file or folder name. All words in the query must appear somewhere in the path (case and accents ignored); files whose own name contains the words rank first. Filter by extension or modified date. For words inside documents use tresorit_search_contents instead.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "default": "",
+      "description": "Words from the name, e.g. \"settlement letter 2026\"",
+      "type": "string"
+     },
+     "path": {
+      "default": "",
+      "description": "Folder to search in; \"\" searches all of Tresorit",
+      "type": "string"
+     },
+     "extensions": {
+      "description": "Only these file types, e.g. [\"pdf\",\"docx\"]",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "kind": {
+      "default": "any",
+      "type": "string",
+      "enum": [
+       "any",
+       "file",
+       "folder"
+      ]
+     },
+     "modified_after": {
+      "description": "YYYY-MM-DD",
+      "type": "string"
+     },
+     "modified_before": {
+      "description": "YYYY-MM-DD",
+      "type": "string"
+     },
+     "limit": {
+      "default": 50,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_search_contents",
+   "title": "Search inside documents",
+   "description": "Full-text search inside files in Tresorit: PDF (including scanned PDFs once their text has been recognised), Word (.docx, .doc), Excel (.xlsx, .xls), PowerPoint (.pptx, .ppt), Outlook messages (.msg) and text formats. Case and accents are ignored. Returns matching files with short excerpts. The first search over a large folder can be partial while documents are still being read; the reply says so and a repeat search continues where it left off. Matches in scanned documents come from text recognition, so exact figures and spellings should be checked in the original.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "minLength": 2,
+      "description": "What to look for"
+     },
+     "match": {
+      "default": "phrase",
+      "description": "phrase = exact wording; all_words = every word somewhere in the file; any_word; regex",
+      "type": "string",
+      "enum": [
+       "phrase",
+       "all_words",
+       "any_word",
+       "regex"
+      ]
+     },
+     "path": {
+      "default": "",
+      "description": "Folder to search in; \"\" searches all of Tresorit",
+      "type": "string"
+     },
+     "extensions": {
+      "description": "Only these file types, e.g. [\"pdf\"]",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "limit": {
+      "default": 20,
+      "description": "Maximum number of files returned",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+     },
+     "snippets_per_file": {
+      "default": 3,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+     },
+     "include_online_only": {
+      "default": false,
+      "description": "Also download and read files that are online-only (can be slow and uses disk space)",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_read_file",
+   "title": "Read a file",
+   "description": "Read a file from Tresorit. Documents come back as text: PDF (scanned PDFs through text recognition), Word (.docx, .doc), Excel (.xlsx, .xls), PowerPoint (.pptx, .ppt), Outlook messages (.msg) and text formats. Long documents are paged, so use offset to continue. Images (png, jpg, gif, webp) are shown directly. For other binary files use tresorit_export_to_transfer.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "File path relative to the Tresorit folder"
+     },
+     "offset": {
+      "default": 0,
+      "description": "Character position to start from (for long documents)",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+     },
+     "max_chars": {
+      "default": 60000,
+      "type": "integer",
+      "minimum": 500,
+      "maximum": 200000
+     },
+     "ask_password": {
+      "default": false,
+      "description": "For a password-protected PDF: ask the user for its password in a box on their Mac (never in the conversation), and read it once. The text is not kept. To make a whole folder of protected PDFs searchable use tresorit_unlock_folder.",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_file_info",
+   "title": "File or folder details",
+   "description": "Size, dates and type of a file or folder in Tresorit. For a folder, also counts what is inside.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "default": "",
+      "type": "string"
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_recent_files",
+   "title": "Recently changed files",
+   "description": "List the files in Tresorit (or one folder) that were added or changed most recently.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "default": "",
+      "type": "string"
+     },
+     "days": {
+      "default": 7,
+      "description": "Look back this many days",
+      "type": "number",
+      "minimum": 0.01,
+      "maximum": 3650
+     },
+     "extensions": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "limit": {
+      "default": 40,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_write_file",
+   "title": "Create or replace a file",
+   "description": "Write a file into Tresorit. Missing folders are created. An existing file is only replaced when overwrite is true, and its previous version is then kept in the holding area (see tresorit_list_deleted). Use encoding \"base64\" for very small binary files. For a document made in the chat use tresorit_receive_file (in parts, checked); for a file already on this Mac use tresorit_import_file.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Where to save, relative to the Tresorit folder, including the file name"
+     },
+     "content": {
+      "type": "string",
+      "description": "The file content"
+     },
+     "encoding": {
+      "default": "utf8",
+      "type": "string",
+      "enum": [
+       "utf8",
+       "base64"
+      ]
+     },
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     },
+     "sha256": {
+      "description": "Optional SHA-256 fingerprint (hex) of the file. If given, the file is saved only when it matches.",
+      "type": "string",
+      "pattern": "^\\s*[0-9a-fA-F]{64}\\s*$"
+     }
+    },
+    "required": [
+     "path",
+     "content"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_edit_file",
+   "title": "Edit a text file",
+   "description": "Replace a passage in a plain-text file in Tresorit (md, txt, csv, json and similar). old_text must match exactly and only once unless replace_all is true. The version before the edit is kept in the holding area. Word, Excel and PDF files cannot be edited this way.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string"
+     },
+     "old_text": {
+      "type": "string",
+      "minLength": 1
+     },
+     "new_text": {
+      "type": "string"
+     },
+     "replace_all": {
+      "default": false,
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path",
+     "old_text",
+     "new_text"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_create_folder",
+   "title": "Create a folder",
+   "description": "Create a folder inside a tresor (parent folders are created as needed). New tresors themselves are created in the Tresorit app.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_move_item",
+   "title": "Move or rename",
+   "description": "Move or rename a file or folder within Tresorit. If destination is an existing folder the item is moved into it; otherwise destination is the new full path. Nothing is overwritten unless overwrite is true. A folder that has a blocked folder inside it cannot be moved or renamed.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "source": {
+      "type": "string"
+     },
+     "destination": {
+      "type": "string"
+     },
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "source",
+     "destination"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_copy_item",
+   "title": "Copy",
+   "description": "Copy a file or folder within Tresorit, for example to assemble a pack for a third party. If destination is an existing folder the copy goes into it; otherwise destination is the full path of the copy. A blocked folder inside the copied folder is left out, and the reply says so.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "source": {
+      "type": "string"
+     },
+     "destination": {
+      "type": "string"
+     },
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "source",
+     "destination"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_delete_items",
+   "title": "Delete (needs the user's permission)",
+   "description": "Delete files or folders from Tresorit. THE USER MUST APPROVE EVERY DELETION. Step 1: call with paths only; nothing is deleted and you get a preview and a confirm_token. Step 2: show the user the preview, ask for their permission, and only after an explicit yes call again with the same paths and the confirm_token. Deleted items are moved to a holding area on this Mac and can be brought back with tresorit_restore_deleted.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "paths": {
+      "minItems": 1,
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "confirm_token": {
+      "description": "The token from the preview step. Only pass it after the user has said yes to this exact list.",
+      "type": "string"
+     }
+    },
+    "required": [
+     "paths"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_list_deleted",
+   "title": "List the holding area",
+   "description": "Show what is in the holding area: items deleted through this connector and previous versions of files that were replaced or edited. Anything here can be restored with tresorit_restore_deleted. A batch with many items shows its first few and says how many more there are; give its name in batch to see all of them.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "limit": {
+      "default": 30,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+     },
+     "batch": {
+      "description": "Show only this batch, with every item in it",
+      "type": "string"
+     },
+     "items_per_batch": {
+      "default": 10,
+      "description": "How many items to show for each batch when listing several",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_restore_deleted",
+   "title": "Restore from the holding area",
+   "description": "Put back items from a holding-area batch (see tresorit_list_deleted) to where they were in Tresorit. Restores the whole batch, or one item if item is given. If something now exists at the original place it is only replaced when overwrite is true (and is then itself kept in the holding area).",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "batch": {
+      "type": "string",
+      "description": "Batch name from tresorit_list_deleted"
+     },
+     "item": {
+      "description": "Original path of a single item to restore",
+      "type": "string"
+     },
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "batch"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_export_to_transfer",
+   "title": "Copy out to the transfer folder",
+   "description": "Copy a file or folder from Tresorit to the connector's transfer folder on this Mac (outside Tresorit), so it can be processed with other tools, for example a Word or Excel file that needs editing. The original stays in Tresorit. Returns the full path of the copy. A whole folder is copied out only after the user has agreed in a confirmation window on their Mac; if they decline or do not answer, nothing is copied.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "description": "One file or folder in Tresorit",
+      "type": "string"
+     },
+     "paths": {
+      "description": "Several files or folders in one call. They are put together in one new dated folder inside the transfer folder, each under its own Tresorit path, so files with the same name never collide.",
+      "minItems": 1,
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_import_from_transfer",
+   "title": "Bring in from the transfer folder",
+   "description": "Move a file or folder from the connector's transfer folder into Tresorit. Call without name to see what is waiting in the transfer folder and where that folder is. If destination is an existing folder the item goes into it; otherwise destination is the full new path.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "description": "Name of the item inside the transfer folder",
+      "type": "string"
+     },
+     "names": {
+      "description": "Several items in one call (names or paths inside the transfer folder). destination must then be a folder; each item goes into it under its own name. Nothing is overwritten unless overwrite is true; an item that cannot be brought in is reported and the others still are.",
+      "minItems": 1,
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "destination": {
+      "description": "Where to put it in Tresorit",
+      "type": "string"
+     },
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     },
+     "keep_copy": {
+      "default": false,
+      "description": "Leave the item in the transfer folder as well",
+      "type": "boolean"
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_clear_deleted",
+   "title": "Empty old batches from the holding area (needs the user's permission)",
+   "description": "Remove batches from the holding area FOR GOOD, sooner than they would go by themselves: after this they cannot be restored. (Batches older than the number of days in the settings, 30 by default, are removed automatically without this tool.) THE USER MUST APPROVE. Step 1: call with older_than_days (or with batch names); nothing is removed and you get a preview with sizes and a confirm_token. Step 2: show the user the preview, and only after an explicit yes call again with the same arguments and the confirm_token. Nothing in Tresorit itself is touched.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "older_than_days": {
+      "default": 30,
+      "description": "Remove batches older than this many days",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 3650
+     },
+     "batches": {
+      "description": "Instead of an age: the exact batch names to remove",
+      "maxItems": 500,
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "confirm_token": {
+      "description": "The token from the preview step. Only pass it after the user has said yes.",
+      "type": "string"
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_list_outside_folder",
+   "title": "List a folder on this Mac (names only)",
+   "description": "Show the names, sizes and dates of what is in a folder OUTSIDE Tresorit on this Mac (by default Downloads), so that the right file can be found and brought in with tresorit_import_file. Nothing is opened or read. Hidden folders, the Library, applications and password or key stores cannot be listed.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "default": "~/Downloads",
+      "description": "Full path of a folder on this Mac, e.g. ~/Downloads, ~/Desktop, /Volumes/USB",
+      "type": "string"
+     },
+     "sort": {
+      "default": "recent",
+      "type": "string",
+      "enum": [
+       "recent",
+       "name"
+      ]
+     },
+     "limit": {
+      "default": 60,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_import_file",
+   "title": "Bring a file or folder into Tresorit from this Mac",
+   "description": "Copy (or move) a file or folder from elsewhere on this Mac into Tresorit: from the home folder (Downloads, Desktop, Documents, iCloud Drive and so on) or an external drive. Give the full path as source, for example ~/Downloads/report.pdf, or only a file name to take it from Downloads (the exact name if there is one, otherwise the newest file whose name contains those words; the reply says which file was taken). Hidden folders, the Library, applications and password or key stores are refused. By default the file is COPIED and the original stays where it is. With mode \"move\", the original is taken away only after the copy has been checked, and is kept in the holding area so the move can be undone with tresorit_restore_deleted. A folder holding items that are never brought in (hidden items, links, applications, key stores, files with a name Tresorit does not sync) cannot be moved, only copied, so that those items are never lost; the reply lists them. Every copy is verified against the original. Nothing in Tresorit is overwritten unless overwrite is true. A folder, or anything very large, first returns a preview and a confirm_token: show the preview to the user and call again with the token only after they agree. The contents are not shown here; once the file is in Tresorit it can be read with tresorit_read_file.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "source": {
+      "type": "string",
+      "description": "Full path on this Mac (e.g. ~/Downloads/report.pdf, /Volumes/USB/folder), or just a file name to look for in Downloads"
+     },
+     "destination": {
+      "type": "string",
+      "description": "Where to put it in Tresorit. For a file: a folder (a new one is created; end it with \"/\" to be explicit), or the full new path including the file name. A folder always goes inside the destination folder, keeping its own name"
+     },
+     "mode": {
+      "default": "copy",
+      "description": "copy leaves the original in place; move takes it away after the copy is checked",
+      "type": "string",
+      "enum": [
+       "copy",
+       "move"
+      ]
+     },
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     },
+     "allow_duplicate": {
+      "default": false,
+      "description": "Bring the file in even if an identical file is already in the destination folder under another name",
+      "type": "boolean"
+     },
+     "confirm_token": {
+      "description": "The token from the preview of a folder or very large import. Only pass it after the user has agreed.",
+      "type": "string"
+     }
+    },
+    "required": [
+     "source",
+     "destination"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_export_file",
+   "title": "Copy out to Downloads or Desktop",
+   "description": "Copy a file or folder from Tresorit to the Downloads or Desktop folder on this Mac, for example to attach it to an email. It is always a copy: the original stays in Tresorit, and nothing in Downloads or Desktop is overwritten (a number is added to the name if needed). The copy is then outside Tresorit and no longer protected by it. A whole folder is copied out only after the user has agreed in a confirmation window on their Mac; if they decline or do not answer, nothing is copied.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "File or folder in Tresorit"
+     },
+     "to": {
+      "default": "Downloads",
+      "type": "string",
+      "enum": [
+       "Downloads",
+       "Desktop"
+      ]
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_receive_file",
+   "title": "Save a small document made in the chat (in parts, checked)",
+   "description": "Save a small binary document that was created in the conversation (for example a .docx, .pdf or .xlsx) into Tresorit, without the user having to download it. The file is sent as base64 text in numbered parts, in order, with the SHA-256 fingerprint of each part (of the decoded bytes) and, on the last part, of the whole file. A part that does not match its fingerprint is refused and must be sent again; nothing is saved until every part has arrived and the whole file matches. Keep each part to about 8,000 base64 characters. Meant for files up to roughly 50 KB (limit 3 MB): for anything larger, give the file to the user to download and bring it in with tresorit_import_file. Plain text files do not need this: use tresorit_write_file.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Where to save, relative to the Tresorit folder, including the file name"
+     },
+     "part": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 600,
+      "description": "Number of this part, starting at 1"
+     },
+     "parts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 600,
+      "description": "Total number of parts"
+     },
+     "data": {
+      "type": "string",
+      "maxLength": 90000,
+      "description": "This part of the file, as base64"
+     },
+     "part_sha256": {
+      "type": "string",
+      "pattern": "^\\s*[0-9a-fA-F]{64}\\s*$",
+      "description": "SHA-256 (hex) of the decoded bytes of this part"
+     },
+     "file_sha256": {
+      "description": "SHA-256 (hex) of the whole file; required with the last part",
+      "type": "string",
+      "pattern": "^\\s*[0-9a-fA-F]{64}\\s*$"
+     },
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path",
+     "part",
+     "parts",
+     "data",
+     "part_sha256"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_list_unreadable",
+   "title": "List the files that could not be read",
+   "description": "List the documents in Tresorit that the connector could not read, with path, size, date and the reason: password-protected, damaged, empty, content of a kind that cannot be read, too large. Also lists files whose ending does not match their content (for example a PNG image saved as .pdf); those are read by their content. Totals are grouped by reason. Names, sizes and dates only: nothing is opened. Folders set as \"do not index\" are not included.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "reason": {
+      "default": "all",
+      "description": "Only this reason. wrong_ending = files whose ending does not match their content.",
+      "type": "string",
+      "enum": [
+       "all",
+       "password",
+       "damaged",
+       "empty",
+       "unsupported",
+       "too_large",
+       "other",
+       "wrong_ending"
+      ]
+     },
+     "path": {
+      "default": "",
+      "description": "Only inside this folder; \"\" for all of Tresorit",
+      "type": "string"
+     },
+     "limit": {
+      "default": 100,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_unlock_folder",
+   "title": "Make password-protected PDFs in a folder searchable",
+   "description": "Open the password-protected PDFs in a folder (or one file) with a password that THE USER TYPES IN A BOX ON THEIR MAC, and put their text into the search index so they can be searched and read like any other document. The password is never part of the conversation: do not ask the user for it and do not accept it in a message. It is used for this call and kept nowhere (not in the log, the index or any file). The files in Tresorit are not changed and no unlocked copies are made; only the extracted text is kept, in the search index on this Mac, like the text of every other document. Files that the password does not open are reported, so the tool can be called again for another password. Also reports any unprotected PDF in the same folder that looks like a copy of a protected one. Each Mac has its own index, so this is done once on each.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string",
+      "description": "Folder (or a single PDF) in Tresorit"
+     },
+     "recursive": {
+      "default": true,
+      "description": "Also the folders inside it",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_clear_transfer",
+   "title": "List and empty the transfer folder (needs the user's permission)",
+   "description": "Show what is in the connector's transfer folder (copies made by tresorit_export_to_transfer, outside Tresorit and not encrypted by it) and remove it. THE USER MUST APPROVE. Step 1: call without a token; nothing is removed and you get the list with sizes and ages, and a confirm_token. Step 2: show the user the list, and only after an explicit yes call again with the same arguments and the confirm_token. Removal is for good: these are copies, the originals stay in Tresorit, and nothing in Tresorit is touched.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "older_than_hours": {
+      "default": 0,
+      "description": "Only items older than this many hours; 0 for everything",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 87600
+     },
+     "confirm_token": {
+      "description": "The token from the preview step. Only pass it after the user has said yes.",
+      "type": "string"
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_find_identical",
+   "title": "Find files with identical content",
+   "description": "Find files that have exactly the same content (same fingerprint), whatever their names: inside a folder or across all of Tresorit. With file, it answers instead \"is there already a file with this content here?\" for one given file, which may be in Tresorit or elsewhere on this Mac (for example ~/Downloads/report.pdf; only its fingerprint is taken, its content is not shown). Reports only: nothing is changed or deleted. Folders set as \"do not index\" are left out unless path is inside one. A large folder is compared in stages: the reply says if more remains, and calling again continues where it stopped.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "default": "",
+      "description": "Folder to look in; \"\" for all of Tresorit",
+      "type": "string"
+     },
+     "file": {
+      "description": "Look for copies of this one file (a Tresorit path, or a full path on this Mac such as ~/Downloads/x.pdf)",
+      "type": "string"
+     },
+     "min_size_kb": {
+      "default": 0,
+      "description": "Ignore files smaller than this",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 10000000
+     },
+     "limit": {
+      "default": 50,
+      "description": "Maximum number of groups listed",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_preflight",
+   "title": "Self-check on this computer",
+   "description": "Run the connector's self-check on this computer. It runs a second copy of the connector, inside the connector itself, on a scratch folder in the connector's own data folder and tests reading every document type, staying inside the folder, capital letters and accents in names, saving, overwriting, copying, moving, deleting and restoring, bringing files in from the Mac and copying them out, receiving a file in parts, searching and text recognition. It changes nothing in Tresorit (the real folder is only listed). It takes under a minute. The connector is read-only until this check has passed once on each computer, and again after each update. Show the user the full report.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_connector_status",
+   "title": "Connector status",
+   "description": "Show how the Tresorit connector is set up on this Mac: which folder it works on, the tresors found, the state of the search index and of text recognition for scanned PDFs, and where the access log, holding area and transfer folder are. Set rebuild_index to true to throw the search index away and read every document again.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "rebuild_index": {
+      "default": false,
+      "type": "boolean"
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  },
+  {
+   "name": "tresorit_access_log",
+   "title": "Show the access log",
+   "description": "Show the most recent lines of the connector's access log: every file opened, searched, written, moved or deleted through it.",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "lines": {
+      "default": 50,
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+     },
+     "contains": {
+      "description": "Only lines containing this text",
+      "type": "string"
+     }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "openWorldHint": false
+   },
+   "execution": {
+    "taskSupport": "forbidden"
+   }
+  }
+ ]
+}

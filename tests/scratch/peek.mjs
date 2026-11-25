@@ -1,0 +1,14 @@
+import { Client } from '../tresorit-connector/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js';
+import { StdioClientTransport } from '../tresorit-connector/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js';
+import fs from 'node:fs';
+fs.rmSync('/home/tester/build/mock/data-peek', { recursive: true, force: true });
+const transport = new StdioClientTransport({ command: 'node', args: ['/home/tester/build/tresorit-connector/server/index.js'], env: { ...process.env, TRESORIT_ROOT: '/home/tester/build/mock/Tresors', TRESORIT_DATA_DIR: '/home/tester/build/mock/data-peek', TRESORIT_INDEX_DELAY_MS: '999999', TRESORIT_OCR_ENGINE: 'bundled' }, stderr: 'inherit' });
+const client = new Client({ name: 'peek', version: '1' }, { capabilities: {} });
+await client.connect(transport);
+const call = async (name, args) => { const t0 = Date.now(); const r = await client.callTool({ name: 'tresorit_' + name, arguments: args }, undefined, { timeout: 170000 }); console.log(`\n### ${name} ${JSON.stringify(args)}  [${Date.now() - t0} ms]${r.isError ? ' ERROR' : ''}\n` + r.content.map((c) => c.text || '[image]').join('\n').slice(0, 900)); };
+await call('read_file', { path: 'Alder Works UK/06 - Emails/unicode.msg' });
+await call('read_file', { path: 'Personal/Scans/Mixed agreement.pdf' });
+await call('copy_item', { source: 'Birch Labs/Pipes/has-fifo', destination: 'Birch Labs/Pipes/target', overwrite: true });
+await call('search_contents', { query: '(a+)+$', match: 'regex', path: 'Birch Labs/Briefs' });
+await call('read_file', { path: 'Alder Works UK/05 - Legacy/Commission tracker 2026.xls' });
+await client.close();
